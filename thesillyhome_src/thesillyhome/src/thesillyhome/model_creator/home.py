@@ -43,6 +43,7 @@ class homedb:
         if self.from_cache:
             logging.info("Using cached all_states.pkl")
             return pd.read_pickle(f"{tsh_config.data_dir}/parsed/all_states.pkl")
+        
         logging.info("Executing query")
 
         query = """
@@ -51,7 +52,8 @@ class homedb:
                 states.entity_id AS entity_id,
                 states.state AS state,
                 states.last_updated AS last_updated_ts,
-                states.old_state_id AS old_state_id
+                states.old_state_id AS old_state_id,
+                state_attributes.shared_data AS shared_data
             FROM states
             JOIN state_attributes ON states.attributes_id = state_attributes.attributes_id
             WHERE states.entity_id IN ({devices})
@@ -80,5 +82,6 @@ class homedb:
                 )
             ]
             df_output = pd.concat(list_df)
+        
         df_output.to_pickle(f"{tsh_config.data_dir}/parsed/all_states.pkl")
         return df_output
