@@ -71,8 +71,8 @@ def train_actuator_model(actuator, df_act_states, model_types, act_list, metrics
     # Dynamische Testgröße basierend auf der Anzahl der Samples
     sample_count = len(output_vector)
     if sample_count > 1000:
-        test_size = 0.2
-    elif 300 <= sample_count <= 1000:
+        test_size = 0.6
+    elif 400 <= sample_count <= 1000:
         test_size = 0.3
     else:
         test_size = 0.1
