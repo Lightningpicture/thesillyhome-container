@@ -6,17 +6,20 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from joblib import Parallel, delayed
-
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeClassifier, plot_tree
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.metrics import precision_recall_curve, accuracy_score, precision_score, recall_score, auc
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.feature_selection import SelectKBest, f_classif, VarianceThreshold
 
 import thesillyhome.model_creator.read_config_json as tsh_config
+
+# Warnungen zu konstanten Features deaktivieren
+import warnings
+warnings.filterwarnings("ignore", message="Features .* are constant.")
 
 def save_visual_tree(model, actuator, feature_vector):
     plt.figure(figsize=(12, 12))
@@ -71,8 +74,8 @@ def train_actuator_model(actuator, df_act_states, model_types, act_list, metrics
     # Dynamische Testgröße basierend auf der Anzahl der Samples
     sample_count = len(output_vector)
     if sample_count > 1000:
-        test_size = 0.6
-    elif 400 <= sample_count <= 1000:
+        test_size = 0.2
+    elif 300 <= sample_count <= 1000:
         test_size = 0.3
     else:
         test_size = 0.1
@@ -80,16 +83,21 @@ def train_actuator_model(actuator, df_act_states, model_types, act_list, metrics
     # Stratified Sampling für gleichmäßige Klassenverteilung
     X_train, X_test, y_train, y_test = train_test_split(feature_vector, output_vector, test_size=test_size, stratify=output_vector)
 
-    # Feature Selection
-    selector = SelectKBest(f_classif, k=min(20, len(feature_vector.columns)))
-    X_train = selector.fit_transform(X_train, y_train)
-    X_test = selector.transform(X_test)
+    # Variance Threshold: Entferne konstante Features
+    variance_filter = VarianceThreshold(threshold=0.0)
+    X_train = variance_filter.fit_transform(X_train)
+    X_test = variance_filter.transform(X_test)
+
+    # Standardisierung der Daten
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
 
     # Inverse exponentielle Gewichtung für ältere Daten
     n_samples = len(X_train)
-    sample_weight = np.logspace(-0.4, -0.1, n_samples, base=2)  # Invers schwach exponentiell, ältere Daten höher gewichtet
-    scaler = MinMaxScaler(feature_range=(0.6, 0.9))  # Werte zwischen 0.6 und 0.9
-    sample_weight = scaler.fit_transform(sample_weight.reshape(-1, 1)).flatten()
+    sample_weight = np.logspace(-0.4, -0.1, n_samples, base=2)
+    scaler_weight = MinMaxScaler(feature_range=(0.6, 0.9))
+    sample_weight = scaler_weight.fit_transform(sample_weight.reshape(-1, 1)).flatten()
 
     train_all_classifiers(model_types, actuator, X_train, X_test, y_train, y_test, sample_weight, metrics_matrix, feature_list)
 
@@ -165,12 +173,12 @@ def save_plots(actuator, y_train):
 
 def save_metrics(metrics_matrix):
     df_metrics_matrix = pd.DataFrame(metrics_matrix)
-    df_metrics_matrix.to_pickle(f"/thesillyhome_src/data/model/metrics.pkl")
-    try:
-        best_metrics_matrix = df_metrics_matrix.fillna(0).sort_values("best_optimizer", ascending=False).drop_duplicates(subset=["actuator"], keep="first")
-    except Exception as e:
-        logging.warning(f"No metrics available: {e}")
+    if df_metrics_matrix.empty:
+        logging.warning("No metrics available: no models were successfully trained.")
         return
+
+    df_metrics_matrix.to_pickle(f"/thesillyhome_src/data/model/metrics.pkl")
+    best_metrics_matrix = df_metrics_matrix.fillna(0).sort_values("best_optimizer", ascending=False).drop_duplicates(subset=["actuator"], keep="first")
     metrics_path = "/thesillyhome_src/frontend/static/data/metrics_matrix.json"
     best_metrics_matrix.to_json(metrics_path, orient="records")
 
