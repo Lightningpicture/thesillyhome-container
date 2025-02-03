@@ -1,3 +1,7 @@
+)
+python
+Kopieren
+Bearbeiten
 # Library imports
 from datetime import datetime
 import mysql.connector
@@ -7,17 +11,14 @@ import os.path
 import os
 import logging
 from sqlalchemy import create_engine
-import bcrypt
 import json
 
 # Local application imports
 import thesillyhome.model_creator.read_config_json as tsh_config
 
-
 """
   Get data from DB and store locally
 """
-
 
 class homedb:
     def __init__(self):
@@ -40,6 +41,14 @@ class homedb:
             elif self.db_type == "mariadb":
                 mydb = create_engine(
                     f"mysql+pymysql://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}",
+                    echo=False,
+                )
+            elif self.db_type == "sqlite":
+                db_path = f"/config/{self.database}"  # Ensure correct path
+                if not os.path.exists(db_path):
+                    raise Exception(f"SQLite database not found at {db_path}.")
+                mydb = create_engine(
+                    f"sqlite:///{db_path}",
                     echo=False,
                 )
             else:
