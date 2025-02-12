@@ -4,8 +4,10 @@ on:
   push:
     branches: [ "master" ]
 
+env:
+  VERSION: "v1.4.0" 
+
 jobs:
-  # 📌 QEMU-Setup (nur einmal ausführen, um Probleme zu vermeiden)
   setup-qemu:
     runs-on: ubuntu-latest
     steps:
@@ -17,7 +19,6 @@ jobs:
         run: |
           sudo systemctl restart binfmt-support || true
 
-  # 🏗 Job für AMD64
   build-amd64:
     runs-on: ubuntu-latest
     needs: setup-qemu
@@ -36,7 +37,7 @@ jobs:
 
       - name: Define dynamic tag
         id: tag
-        run: echo "tag=$(date +%Y%m%d)-$(echo $GITHUB_SHA | cut -c1-7)_v1.3.9" >> $GITHUB_ENV
+        run: echo "tag=$(date +%Y%m%d)-$(echo $GITHUB_SHA | cut -c1-7)_${{ env.VERSION }}" >> $GITHUB_ENV
 
       - name: Build and push AMD64
         run: |
@@ -46,7 +47,6 @@ jobs:
             -t lightningpicture/amd64-thesillyhome-dev:${{ env.tag }} \
             -t lightningpicture/amd64-thesillyhome-dev:latest .
 
-  # 🏗 Job für AARCH64 (ARM64) - startet nach AMD64
   build-aarch64:
     runs-on: ubuntu-latest
     needs: build-amd64
@@ -63,7 +63,7 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
         with:
-          platforms: arm64  # ✅ Nur ARM64, um unnötige Fehler zu vermeiden
+          platforms: arm64
 
       - name: Enable Cross-Compilation
         run: |
@@ -74,8 +74,7 @@ jobs:
 
       - name: Define dynamic tag
         id: tag
-        run: echo "tag=$(date +%Y%m%d)-$(echo $GITHUB_SHA | cut -c1-7)_v1.3.9" >> $GITHUB_ENV
-
+        run: echo "tag=$(date +%Y%m%d)-$(echo $GITHUB_SHA | cut -c1-7)_${{ env.VERSION }}" >> $GITHUB_ENV
 
       - name: Build and push AARCH64
         run: |
@@ -85,7 +84,6 @@ jobs:
             -t lightningpicture/aarch64-thesillyhome-dev:${{ env.tag }} \
             -t lightningpicture/aarch64-thesillyhome-dev:latest .
 
-  # 🏗 Job für ARMv7 - startet nach AARCH64
   build-armv7:
     runs-on: ubuntu-latest
     needs: build-aarch64
@@ -102,7 +100,7 @@ jobs:
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
         with:
-          platforms: arm  # ✅ Nur ARM, um Fehler zu vermeiden
+          platforms: arm
 
       - name: Enable Cross-Compilation
         run: |
@@ -113,8 +111,7 @@ jobs:
 
       - name: Define dynamic tag
         id: tag
-        run: echo "tag=$(date +%Y%m%d)-$(echo $GITHUB_SHA | cut -c1-7)_v1.3.9" >> $GITHUB_ENV
-
+        run: echo "tag=$(date +%Y%m%d)-$(echo $GITHUB_SHA | cut -c1-7)_${{ env.VERSION }}" >> $GITHUB_ENV
 
       - name: Build and push ARMv7
         run: |
