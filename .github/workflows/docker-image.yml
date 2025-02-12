@@ -36,7 +36,7 @@ jobs:
 
       - name: Define dynamic tag
         id: tag
-        run: echo "tag=$(date +%Y%m%d)-$(echo $GITHUB_SHA | cut -c1-7)_v1.3.6" >> $GITHUB_ENV
+        run: echo "tag=$(date +%Y%m%d)-$(echo $GITHUB_SHA | cut -c1-7)_v1.3.7" >> $GITHUB_ENV
 
       - name: Build and push AMD64
         run: |
@@ -74,7 +74,7 @@ jobs:
 
       - name: Define dynamic tag
         id: tag
-        run: echo "tag=$(date +%Y%m%d)-$(echo $GITHUB_SHA | cut -c1-7)_v1.3.6" >> $GITHUB_ENV
+        run: echo "tag=$(date +%Y%m%d)-$(echo $GITHUB_SHA | cut -c1-7)_v1.3.7" >> $GITHUB_ENV
 
       - name: Build and push AARCH64
         run: |
@@ -112,7 +112,7 @@ jobs:
 
       - name: Define dynamic tag
         id: tag
-        run: echo "tag=$(date +%Y%m%d)-$(echo $GITHUB_SHA | cut -c1-7)_v1.3.6" >> $GITHUB_ENV
+        run: echo "tag=$(date +%Y%m%d)-$(echo $GITHUB_SHA | cut -c1-7)_v1.3.7" >> $GITHUB_ENV
 
       - name: Build and push ARMv7
         run: |
