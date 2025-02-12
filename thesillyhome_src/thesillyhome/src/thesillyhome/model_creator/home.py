@@ -44,7 +44,7 @@ class homedb:
                 )
             elif self.db_type == "sqlite":
                 mydb = create_engine(
-                    f"sqlite:////config/{self.database}",
+                    f"sqlite:////config/{self.database}",  
                     echo=False,
                 )
             else:
