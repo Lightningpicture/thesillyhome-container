@@ -127,10 +127,76 @@ def train_all_actuator_models():
     save_metrics(metrics_matrix)
     logging.info("Completed!")
 
+def train_all_classifiers(model_types, actuator, X_train, X_test, y_train, y_test, sample_weight, metrics_matrix, feature_list):
+    """Trains all classifiers and saves their results."""
+    logging.info(f"---Training samples = {len(y_train)}")
+
+    model_directory = f"{tsh_config.data_dir}/model/{actuator}"
+    os.makedirs(model_directory, exist_ok=True)
+
+    best_model = 0
+    for model_name, model_vars in model_types.items():
+        logging.info(f"---Running training for {model_name}")
+
+        model = model_vars["classifier"](**model_vars["model_kwargs"])
+        try:
+            model.fit(X_train, y_train, sample_weight=sample_weight)
+        except Exception as e:
+            logging.warning(f"Training failed for {model_name} on {actuator}: {e}")
+            continue
+
+        if model_name == "DecisionTreeClassifier":
+            save_visual_tree(model, actuator, feature_list)
+
+        if len(model.classes_) > 1:
+            y_predictions_proba = model.predict_proba(X_test)[:, 1]
+        else:
+            logging.warning(f"Skipping {actuator} with {model_name}: only one class present.")
+            continue
+
+        precision, recall, thresholds = precision_recall_curve(y_test, y_predictions_proba)
+        ix, optimizer = optimization_function(precision, recall)
+        auc_ = auc(recall, precision)
+
+        plt.plot(precision, recall, label=model_name)
+        plt.scatter(precision[ix], recall[ix], marker="o", label=f"{model_name}")
+        plt.xlabel("Recall")
+        plt.ylabel("Precision")
+        plt.legend()
+        plt.savefig(f"/thesillyhome_src/frontend/static/data/{actuator}_precision_recall.png")
+        plt.close()  # Ensure plot resources are released
+
+        y_predictions_best = to_labels(y_predictions_proba, thresholds[ix])
+
+        metrics_json = {
+            "actuator": actuator,
+            "classifier_name": model_name,
+            "accuracy": accuracy_score(y_test, y_predictions_best),
+            "precision": precision_score(y_test, y_predictions_best),
+            "recall": recall_score(y_test, y_predictions_best),
+            "AUC": auc_,
+            "best_thresh": thresholds[ix],
+            "best_optimizer": optimizer[ix],
+            "model_enabled": False,
+        }
+
+        metrics_matrix.append(metrics_json)
+
+        if optimizer[ix] > best_model and metrics_json["precision"] > 0.7:
+            metrics_json["model_enabled"] = True
+            best_model = optimizer[ix]
+            save_model(model, f"{model_directory}/best_model.pkl")
+
+        save_model(model, f"{model_directory}/{model_name}.pkl")
+
+def save_model(model, filepath):
+    """Saves a model to a specified filepath."""
+    with open(filepath, "wb") as file:
+        pickle.dump(model, file)
+
 def save_metrics(metrics_matrix):
     """Saves the metrics to a file."""
     df_metrics_matrix = pd.DataFrame(metrics_matrix)
-
     metrics_path = "/thesillyhome_src/frontend/static/data/metrics_matrix.json"
 
     # Falls keine Daten vorhanden sind, erstelle eine leere JSON-Datei
@@ -140,6 +206,7 @@ def save_metrics(metrics_matrix):
             f.write("[]")
         return  # Verhindert Fehler durch leere Daten
 
+    # Speichert Metriken als Pickle-Datei
     df_metrics_matrix.to_pickle(f"/thesillyhome_src/data/model/metrics.pkl")
 
     try:
@@ -147,17 +214,14 @@ def save_metrics(metrics_matrix):
             "best_optimizer", ascending=False
         ).drop_duplicates(subset=["actuator"], keep="first")
     except Exception as e:
-        logging.warning(f"No metrics available: {e}")
+        logging.warning(f"No metrics available due to exception: {e}")
         with open(metrics_path, "w") as f:
             f.write("[]")  # Sicherheitshalber leere JSON-Datei erstellen
         return
 
+    # Speichert die berechnete Metrik als JSON-Datei
     best_metrics_matrix.to_json(metrics_path, orient="records")
-
-def save_model(model, filepath):
-    """Saves a model to a specified filepath."""
-    with open(filepath, "wb") as file:
-        pickle.dump(model, file)
+    
 
 if __name__ == "__main__":
     FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
